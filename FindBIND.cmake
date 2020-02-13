@@ -73,7 +73,7 @@ foreach (bindlib ${bind_libs})
 
     set(CMAKE_REQUIRED_LIBRARIES)
 
-    if (ns_initparse_works_${bindlib} AND res_mkquery_works_${bindlib})
+    if (res_mkquery_works_${bindlib})
         break ()
     else ()
         set(BIND_LIBRARY BIND_LIBRARY-NOTFOUND)
