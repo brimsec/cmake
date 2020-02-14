@@ -33,6 +33,8 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     # exported in the shared library (strangely)
     # see http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=291609
     set(bind_libs none libresolv.a resolv bind)
+elseif (${CMAKE_SYSTEM_NAME} STREQUAL "CYGWIN")
+    set(bind_libs libresolv.a resolv bind)
 else ()
     set(bind_libs none resolv bind)
 endif ()
