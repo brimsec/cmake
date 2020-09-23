@@ -75,7 +75,12 @@ if ( NOT ZEEK_PLUGIN_INTERNAL_BUILD )
                             ${CMAKE_CURRENT_SOURCE_DIR}/src
                             )
 
-        set(ENV{PATH} "${BRO_PLUGIN_BRO_BUILD}/build/src:$ENV{PATH}")
+        if ( WIN32 )
+            find_library(ZEEK_LIBRARY zeek HINTS "${BRO_DIST}/build/src" REQUIRED)
+            set(ENV{PATH} "${BRO_PLUGIN_BRO_BUILD}/build/src;$ENV{PATH}")
+        else ()
+            set(ENV{PATH} "${BRO_PLUGIN_BRO_BUILD}/build/src:$ENV{PATH}")
+        endif ()
 
     else ()
         # Independent from BRO_DIST source tree
@@ -122,7 +127,12 @@ if ( NOT ZEEK_PLUGIN_INTERNAL_BUILD )
         find_package(CAF COMPONENTS core io openssl REQUIRED)
         find_package(Broker REQUIRED)
 
-        string(REPLACE ":" ";" ZEEK_CONFIG_INCLUDE_DIRS "${BRO_CONFIG_INCLUDE_DIR}")
+        if ( WIN32 )
+            find_library(ZEEK_LIBRARY zeek HINTS "${BRO_CONFIG_PREFIX}/lib" REQUIRED)
+            set(ZEEK_CONFIG_INCLUDE_DIRS "${BRO_CONFIG_INCLUDE_DIR}")
+        else ()
+            string(REPLACE ":" ";" ZEEK_CONFIG_INCLUDE_DIRS "${BRO_CONFIG_INCLUDE_DIR}")
+        endif ()
         list(GET ZEEK_CONFIG_INCLUDE_DIRS 0 ZEEK_CONFIG_BASE_INCLUDE_DIR)
         list(APPEND ZEEK_CONFIG_INCLUDE_DIRS
              "${ZEEK_CONFIG_BASE_INCLUDE_DIR}/zeek/3rdparty/rapidjson/include")
@@ -221,6 +231,9 @@ function(bro_plugin_end_dynamic)
     endif()
 
     target_link_libraries(${_plugin_lib} ${_plugin_libs})
+    if ( WIN32 )
+        target_link_libraries(${_plugin_lib} ${ZEEK_LIBRARY} ws2_32)
+    endif()
 
     # Create bif/__load__.zeek.
     bro_bif_create_loader(bif-init-${_plugin_name_canon} "${bro_PLUGIN_BIF_SCRIPTS}")
@@ -275,10 +288,22 @@ function(bro_plugin_end_dynamic)
 
     set(plugin_install "${BRO_PLUGIN_BRO_PLUGIN_INSTALL_PATH}/${_plugin_name_canon}")
 
-    INSTALL(CODE "execute_process(
-        COMMAND ${BRO_PLUGIN_BRO_CMAKE}/zeek-plugin-install-package.sh ${_plugin_name_canon} \$ENV{DESTDIR}/${BRO_PLUGIN_BRO_PLUGIN_INSTALL_PATH}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    )")
+    set(dest_dir "${BRO_PLUGIN_BRO_PLUGIN_INSTALL_PATH}")
+    if ( NOT WIN32 )
+        set(dest_dir "$ENV{DESTDIR}/${dest_dir}")
+    endif ()
+    INSTALL(CODE "
+        if ( NOT IS_DIRECTORY \"${dest_dir}\" )
+            message(WARNING \"Warning: ${dest_dir} does not exist; has Zeek been installed?\")
+            file(MAKE_DIRECTORY \"${dest_dir}\")
+        endif ()
+        file(REMOVE_RECURSE \"${dest_dir}/${_plugin_name_canon}\")
+        execute_process(
+            COMMAND tar xzf -
+            INPUT_FILE \"${CMAKE_CURRENT_BINARY_DIR}/${_plugin_name_canon}.tgz\"
+            WORKING_DIRECTORY ${dest_dir}
+        )
+    ")
 
 
 endfunction()
